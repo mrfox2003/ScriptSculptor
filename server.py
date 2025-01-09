@@ -16,9 +16,6 @@ run_command("sudo apt-get update && sudo apt-get upgrade -y")
 run_command("sudo apt-get install gnupg2 -y")
 run_command("sudo apt-get install golang-go -y")
 
-# Run the git install script
-run_command("bash git/install.sh")
-
 # Configure Git user details
 run_command('git config --global user.name "Niranjan BR"')
 run_command('git config --global user.email "niranjankannan2003@gmail.com"')
