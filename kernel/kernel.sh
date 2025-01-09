@@ -25,22 +25,22 @@ tg_post_doc() {
 
 # Initialize Toolchains
 echo -e "$green Checking for GCC directories... $white"
-if [ -d "$HOME/gcc64" ] && [ -d "$HOME/gcc32" ]; then
+if [ -d "$HOME/kernel-compiler/gcc64" ] && [ -d "$HOME/kernel-compiler/gcc32" ]; then
     echo -e "$green GCC directories already exist. Skipping clone. $white"
 else
     echo -e "$green Cloning GCC toolchains... $white"
-    git clone --depth=1 https://github.com/mvaisakh/gcc-arm64 "$HOME"/gcc64
-    git clone --depth=1 https://github.com/mvaisakh/gcc-arm "$HOME"/gcc32
+    git clone --depth=1 https://github.com/mvaisakh/gcc-arm64 "$HOME"/kernel-compiler/gcc64
+    git clone --depth=1 https://github.com/mvaisakh/gcc-arm "$HOME"/kernel-compiler/gcc32
     echo -e "$green GCC toolchains cloned successfully. $white"
 fi
 
 # Initialize Clang
 echo -e "$green Checking for Clang directory... $white"
-if [ -d "$HOME/clang" ]; then
+if [ -d "$HOME/kernel-compiler/clang" ]; then
     echo -e "$green Clang directory already exists. Skipping clone. $white"
 else
     echo -e "$green Cloning Clang... $white"
-    git clone -b 14 --depth=1 https://bitbucket.org/shuttercat/clang "$HOME"/clang
+    git clone -b 14 --depth=1 https://bitbucket.org/shuttercat/clang "$HOME"/kernel-compiler/clang
     echo -e "$green Clang cloned successfully. $white"
 fi
 
@@ -61,11 +61,11 @@ date=$(date +"%Y-%m-%d-%H%M")
 export ARCH=arm64
 export SUBARCH=arm64
 export zipname="MerakiKernel-sweet-${date}.zip"
-export PATH="$HOME/gcc64/bin:$HOME/gcc32/bin:$PATH"
-export STRIP="$HOME/gcc64/aarch64-elf/bin/strip"
-export KBUILD_COMPILER_STRING=$("$HOME"/gcc64/bin/aarch64-elf-gcc --version | head -n 1)
-export PATH="$HOME/clang/bin:$PATH"
-export KBUILD_COMPILER_STRING=$("$HOME"/clang/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
+export PATH="$HOME/kernel-compiler/gcc64/bin:$HOME/kernel-compiler/gcc32/bin:$PATH"
+export STRIP="$HOME/kernel-compiler/gcc64/aarch64-elf/bin/strip"
+export KBUILD_COMPILER_STRING=$("$HOME"/kernel-compiler/gcc64/bin/aarch64-elf-gcc --version | head -n 1)
+export PATH="$HOME/kernel-compiler/clang/bin:$PATH"
+export KBUILD_COMPILER_STRING=$("$HOME"/kernel-compiler/clang/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 
 # Notify Telegram about the start of compilation
 tg_post_msg "Kernel compilation started for device 'Sweet'."
