@@ -2,7 +2,7 @@
 # set -e
 
 # Check if the voltageos directory exists
-if [ -d "voltageos" ]; then
+if [ -d ""$HOME"/voltageos" ]; then
     # Directory exists, proceed with syncing
     echo "Directory 'voltageos' found. Proceeding with repo sync..."
 
@@ -11,7 +11,7 @@ if [ -d "voltageos" ]; then
     echo "Detected $x cores. Using $x for the sync process."
 
     # Navigate to the voltageos directory
-    cd voltageos || { echo "Failed to change directory to 'voltageos'. Exiting..."; exit 1; }
+    cd "$HOME"/voltageos || { echo "Failed to change directory to 'voltageos'. Exiting..."; exit 1; }
 
     # Perform repo sync with force-sync option
     echo "Performing repo sync with force-sync..."
@@ -24,10 +24,10 @@ else
     echo "Directory 'voltageos' not found. Creating directory and initializing VoltageOS repo..."
 
     # Create a directory for VoltageOS
-    mkdir -p voltageos  # -p ensures no error if the directory already exists
+    mkdir -p "$HOME"/voltageos  # -p ensures no error if the directory already exists
 
     # Navigate into the created directory
-    cd voltageos || { echo "Failed to change directory! Exiting..."; exit 1; }
+    cd "$HOME"/voltageos || { echo "Failed to change directory! Exiting..."; exit 1; }
 
     # Initialize VoltageOS source using repo
     echo "Initializing VoltageOS source..."
