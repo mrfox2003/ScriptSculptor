@@ -1,4 +1,3 @@
-
 #!/bin/bash
 #set -e
 #Replace links accordingly
@@ -51,7 +50,7 @@ if [ -d "kernelsu" ]; then
     echo -e "$green Kernel directory 'kernelsu' already exists. Skipping clone. $white"
 else
     echo -e "$green Cloning Kernel repository... $white"
-    git clone https://github.com/narikootam-dev/kernel_xiaomi_msm4.14 -b ksu-15 kernelsu
+    git clone https://github.com/narikootam-dev/kernel_xiaomi_msm4.14 -b ksu-15.1 kernelsu
     echo -e "$green Kernel repository cloned successfully. $white"
 fi
 
@@ -69,7 +68,7 @@ export PATH="$HOME/kernel-compiler/clang/bin:$PATH"
 export KBUILD_COMPILER_STRING=$("$HOME"/kernel-compiler/clang/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 
 # Notify Telegram about the start of compilation
-tg_post_msg "Kernel compilation started for device 'Sweet'."
+tg_post_msg "Kernel SU compilation started for device 'Sweet'."
 COMMIT=$(git log --pretty=format:"%s" -5)
 tg_post_msg "<b>Recent Changelogs:</b>%0A$COMMIT"
 
