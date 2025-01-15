@@ -1,6 +1,7 @@
 # Set up git config
 git config --global user.name "Niranjan BR"
 git config --global user.email "niranjankannan2003@gmail.com"
+git config --global credential.helper store
 
 sudo apt-get update 
 sudo apt-get upgrade
