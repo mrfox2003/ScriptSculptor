@@ -34,13 +34,14 @@ repos = {
     "device/xiaomi/sweet": "https://github.com/narikootam-dev/device_xiaomi_sweet",
     "vendor/xiaomi/sweet": "https://github.com/narikootam-dev/vendor_xiaomi_sweet",
     "kernel/xiaomi/sweet": "https://github.com/narikootam-dev/kernel_xiaomi_msm4.14",
-    "vendor/xiaomi/sweet-miuicamera": "https://gitlab.com/mrfox2003/sweet-miuicamera",
     "hardware/dolby": "https://github.com/narikootam-dev/hardware_dolby",
     "hardware/xiaomi": "https://github.com/narikootam-dev/hardware_xiaomi",
     "$HOME/.android-certs": "https://github.com/yunluo-testzone/.android-certs",
     "vendor/voltage-priv/keys": "https://github.com/yunluo-testzone/vendor_voltage-priv_keys",
     "prebuilts/clang/host/linux-x86/trb_clang": "https://bitbucket.org/shuttercat/clang",
-    "vendor/oneplus/dolby": "https://github.com/narikootam-dev/vendor_oneplus_dolby"
+    "vendor/oneplus/dolby": "https://github.com/narikootam-dev/vendor_oneplus_dolby",
+    "device/xiaomi/miuicamera-sweet": "https://github.com/narikootam-dev/device-xiaomi-miuicamera-sweet",
+    "vendor/xiaomi/miuicamera-sweet": "https://github.com/narikootam-dev/vendor_xiaomi_miuicamera-sweet"
 }
 
 # Clone each repository with status messages
