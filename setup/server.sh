@@ -5,6 +5,7 @@ git config --global credential.helper store
 
 sudo apt-get update 
 sudo apt-get upgrade
+sudo apt install python-is-python3
 sudo apt-get install gnupg2
 sudo apt-get  install golang-go
 gpg --import k.asc
