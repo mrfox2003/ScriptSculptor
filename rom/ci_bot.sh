@@ -1,17 +1,16 @@
 #!/bin/bash
 
 # Build Configuration. Required variables to compile the ROM.
-CONFIG_BREAKFAST="voltage_sweet-ap3a-userdebug" 
-CONFIG_OFFICIAL_FLAG="1" 
-CONFIG_TARGET="bacon"
+
+DEVICE="sweet"
+VARIANT="user"
+CONFIG_OFFICIAL_FLAG="1"
 
 # Telegram Configuration
 CONFIG_CHATID="" 
 CONFIG_BOT_TOKEN="" 
 CONFIG_ERROR_CHATID=""
 
-# PixelDrain api keys to upload builds
-CONFIG_PDUP_API=""
 
 # Turning off server after build or no
 POWEROFF="false"
@@ -25,7 +24,6 @@ OFFICIAL="0"
 ROOT_DIRECTORY="$(pwd)"
 
 # Post Constants. Required variables for posting purposes.
-DEVICE="$(sed -e "s/^.*_//" -e "s/-.*//" <<<"$CONFIG_BREAKFAST")"
 ROM_NAME="$(sed "s#.*/##" <<<"$(pwd)")"
 OUT="$(pwd)/out/target/product/$DEVICE"
 STICKER_URL="https://raw.githubusercontent.com/Weebo354342432/reimagined-enigma/main/update.webp"
@@ -38,6 +36,9 @@ while [[ $# -gt 0 ]]; do
         ;;
     -c | --clean)
         CLEAN="1"
+        ;;
+    --c-d | --clean-device)
+        CLEAN_DEVICE="1"
         ;;
     -o | --official)
         if [ -n "$CONFIG_OFFICIAL_FLAG" ]; then
@@ -60,6 +61,7 @@ Mandatory options:
 Options:
     -s, --sync            Sync sources before building.
     -c, --clean           Clean build directory before compilation.
+    --c-d, --clean-device Clean device build directory before compilation.
     -o, --official        Build the official variant during compilation.\n"
         exit 1
         ;;
@@ -72,7 +74,7 @@ Options:
 done
 
 # Configuration Checking. Exit the script if required variables aren"t set.
-if [[ $CONFIG_BREAKFAST == "" ]] || [[ $CONFIG_TARGET == "" ]]; then
+if [[ $DEVICE == "" ]] || [[ $VARIANT == "" ]]; then
     echo -e "$RED\nERROR: Please specify all of the mandatory variables!! Exiting now...$RESET\n"
     exit 1
 fi
@@ -118,11 +120,18 @@ send_sticker() {
         -F "is_video=false"
 }
 
-upload_file() {
-    RESPONSE=$(curl -T "$1" -u :"$CONFIG_PDUP_API" https://pixeldrain.com/api/file/)
-    HASH=$(echo "$RESPONSE" | grep -Po '(?<="id":")[^"]*')
+pin_message() {
+    curl "$BOT_PIN_URL" \
+        -d chat_id="$1" \
+        -d message_id="$2"
+}
 
-    echo "https://pixeldrain.com/u/$HASH"
+upload_file() {
+    SERVER=$(curl -X GET 'https://api.gofile.io/servers' | grep -Po '(store*)[^"]*' | tail -n 1)
+    RESPONSE=$(curl -X POST https://${SERVER}.gofile.io/contents/uploadfile -F "file=@$1")
+    HASH=$(echo "$RESPONSE" | grep -Po '(https://gofile.io/d/)[^"]*')
+
+    echo "$HASH"
 }
 
 send_message_to_error_chat() {
@@ -130,8 +139,8 @@ send_message_to_error_chat() {
         -d "parse_mode=html" \
         -d "disable_web_page_preview=true" \
         -d text="$1")
-    local MESSAGE_ID=$(echo "$RESPONSE" | grep -o '"message_id":[0-9]*' | cut -d':' -f2)
-    echo "$MESSAGE_ID"
+    local message_id=$(echo "$response" | grep -o '"message_id":[0-9]*' | cut -d':' -f2)                 
+    echo "$message_id"
 }
 
 send_file_to_error_chat() {
@@ -231,6 +240,11 @@ if [[ -n $CLEAN ]]; then
     rm -rf "out"
 fi
 
+if [[ -n $CLEAN_DEVICE ]]; then
+    echo -e "$BOLD_GREEN\nNuking the device out directory now...$RESET\n"
+    rm -rf "out/target/product/"$DEVICE""
+fi
+
 # Send a notification that the build process has started.
 
 build_start_message="🟡 | <i>Compiling ROM...</i>
@@ -239,7 +253,7 @@ build_start_message="🟡 | <i>Compiling ROM...</i>
 <b>• DEVICE:</b> <code>$DEVICE</code>
 <b>• JOBS:</b> <code>$CONFIG_COMPILE_JOBS Cores</code>
 <b>• TYPE:</b> <code>$([ "$OFFICIAL" == "1" ] && echo "Official" || echo "Unofficial")</code>
-<b>• PROGRESS</b>: <code>Breakfasting...</code>"
+<b>• PROGRESS</b>: <code>Brunching...</code>"
 
 build_message_id=$(send_message "$build_start_message" "$CONFIG_CHATID")
 
@@ -249,19 +263,17 @@ BUILD_START=$(TZ=Asia/Dhaka date +"%s")
 echo -e "$BOLD_GREEN\nSetting up the build environment...$RESET"
 source build/envsetup.sh
 
-echo -e "$BOLD_GREEN\nStarting to breakfast "$DEVICE" now...$RESET"
-breakfast "$CONFIG_BREAKFAST"
-
 if [ $? -eq 0 ]; then
+
+
     echo -e "$BOLD_GREEN\nStarting to build now...$RESET"
-    m installclean -j$CONFIG_COMPILE_JOBS
-    m "$CONFIG_TARGET" -j$CONFIG_COMPILE_JOBS 2>&1 | tee -a "$ROOT_DIRECTORY/build.log" &
+    brunch "$DEVICE" "$VARIANT" 2>&1 | tee -a "$ROOT_DIRECTORY/build.log" &
 else
-    echo -e "$RED\nFailed to breakfast "$DEVICE"$RESET"
+    echo -e "$RED\nFailed to brunch "$DEVICE"$RESET"
 
     build_failed_message="🔴 | <i>ROM compilation failed...</i>
     
-<i>Failed at breakfasting $DEVICE...</i>"
+<i>Failed at brunching $DEVICE...</i>"
 
     edit_message "$build_failed_message" "$CONFIG_CHATID" "$build_message_id"
     send_sticker "$STICKER_URL" "$CONFIG_CHATID"
@@ -320,12 +332,18 @@ else
 
     zip_file=$(ls "$OUT"/*$DEVICE*.zip | tail -n -1)
     recovery=$(ls "$OUT"/recovery.img | tail -n -2)
+    json_file=$(ls "$OUT"/*$DEVICE*.json | tail -n -1)
+
     echo -e "$BOLD_GREEN\nStarting to upload the ZIP file now...$RESET\n"
 
     zip_file_url=$(upload_file "$zip_file")
     recovery_url=$(upload_file "$recovery")
     zip_file_md5sum=$(md5sum $zip_file | awk '{print $1}')
     zip_file_size=$(ls -sh $zip_file | awk '{print $1}')
+
+    echo -e "$BOLD_GREEN\nStarting to upload the JSON file now...$RESET\n"
+
+    json_file_url=$(upload_file "$json_file")
 
     build_finished_message="🟢 | <i>ROM compiled!!</i>
 
@@ -334,11 +352,13 @@ else
 <b>• TYPE:</b> <code>$([ "$OFFICIAL" == "1" ] && echo "Official" || echo "Unofficial")</code>
 <b>• SIZE:</b> <code>$zip_file_size</code>
 <b>• MD5SUM:</b> <code>$zip_file_md5sum</code>
+<b>• JSON:</b> $json_file_url
 <b>• DOWNLOAD:</b> $zip_file_url
 <b>• RECOVERY:</b> $recovery_url
 <i>Compilation took $HOURS hours(s) and $MINUTES minutes(s)</i>"
 
     edit_message "$build_finished_message" "$CONFIG_CHATID" "$build_message_id"
+    pin_message "$CONFIG_CHATID" "$build_message_id"
     send_sticker "$STICKER_URL" "$CONFIG_CHATID"
 fi
 
