@@ -3,6 +3,7 @@
 # Build Configuration. Required variables to compile the ROM.
 
 DEVICE="sweet"
+OEM="xiaomi"
 VARIANT="user"
 CONFIG_OFFICIAL_FLAG="1"
 
@@ -177,6 +178,29 @@ fi
 if [ -f "$ROOT_DIRECTORY/build.log" ]; then
     rm -f "$ROOT_DIRECTORY/build.log"
 fi
+
+
+
+# Function to post changelog from a given path and title
+post_changelog() {
+    local dir_path=$1
+    local title=$2
+
+    if [ -d "$dir_path" ]; then
+        cd "$dir_path" || return
+        CHANGELOG=$(git log --pretty=format:"• %s" -5)
+        send_message "<b>$title Changelogs</b>%0A$CHANGELOG" "$CONFIG_CHATID"
+        cd "$ROOT_DIRECTORY || exit
+    else
+        send_message "<b>$title Changelogs</b>%0A<code>Directory not found: $dir_path</code>" "$CONFIG_CHATID"
+    fi
+}
+
+# Post changelogs
+post_changelog "device/$OEM/$DEVICE" "📱 Device Tree"
+post_changelog "vendor/$OEM/$DEVICE" "🏭 Vendor Tree"
+post_changelog "kernel/$OEM/$DEVICE" "🔧 Kernel Tree"
+
 
 # Jobs Configuration. Determine the number of cores to be used.
 CORE_COUNT=$(nproc --all)
