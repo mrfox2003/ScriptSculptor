@@ -23,6 +23,14 @@ tg_post_doc() {
     -F caption="$2"
 }
 
+# Function to pin a message in Telegram
+pin_message() {
+    curl -s -X POST "https://api.telegram.org/bot$TG_BOT/pinChatMessage" \
+    -d chat_id="$1" \
+    -d message_id="$2"
+}
+
+
 # Initialize Toolchains
 echo -e "$green Checking for GCC directories... $white"
 if [ -d "$HOME/kernel-compiler/gcc64" ] && [ -d "$HOME/kernel-compiler/gcc32" ]; then
@@ -168,7 +176,13 @@ if [ -f "out/arch/arm64/boot/Image.gz" ] && [ -f "out/arch/arm64/boot/dtbo.img" 
     echo ""
     echo -e "Kernel package '${zipname}' is ready!"
     echo ""
-    tg_post_msg "Kernel package '${zipname}' is ready!"
+   BUILD_MSG=$(curl -s -X POST "https://api.telegram.org/bot$TG_BOT/sendMessage" \
+     -d chat_id="$TG_CHAT" \
+     -d "disable_web_page_preview=true" \
+     -d "parse_mode=html" \
+     -d text="Kernel package '${zipname}' is ready!")
+   BUILD_MSG_ID=$(echo "$BUILD_MSG" | jq -r '.result.message_id') 
+   pin_message "$TG_CHAT" "$BUILD_MSG_ID"
     rm -rf out
     rm -rf error.log
     tg_post_doc "${zipname}"
