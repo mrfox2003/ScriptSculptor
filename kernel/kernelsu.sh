@@ -58,7 +58,7 @@ if [ -d "kernelsu" ]; then
     echo -e "$green Kernel directory 'kernelsu' already exists. Skipping clone. $white"
 else
     echo -e "$green Cloning Kernel repository... $white"
-    git clone https://github.com/narikootam-dev/kernel_xiaomi_msm4.14 -b ksu-15.1 kernelsu
+    git clone https://github.com/narikootam-dev/kernel_xiaomi_msm4.14 -b ksu-16.0 kernelsu
     echo -e "$green Kernel repository cloned successfully. $white"
 fi
 
