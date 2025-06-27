@@ -187,7 +187,15 @@ if [ -f "out/arch/arm64/boot/Image.gz" ] && [ -f "out/arch/arm64/boot/dtbo.img" 
     rm -rf error.log
     tg_post_doc "${zipname}"
     rm -rf ${zipname}
+    rm -rf error.log
+    rm -rf KernelSU-Next
+    rm -rf drivers/kernelsu
+    git checkout drivers
 else
     tg_post_msg "Kernel build failed."
     tg_post_doc "error.log" 
+    rm -rf error.log
+    rm -rf KernelSU-Next
+    rm -rf drivers/kernelsu
+    git checkout drivers
 fi
