@@ -3,7 +3,6 @@
 # Build Configuration. Required variables to compile the ROM.
 
 DEVICE="sweet"
-OEM="xiaomi"
 VARIANT="user"
 CONFIG_OFFICIAL_FLAG="1"
 
@@ -11,7 +10,6 @@ CONFIG_OFFICIAL_FLAG="1"
 CONFIG_CHATID="" 
 CONFIG_BOT_TOKEN="" 
 CONFIG_ERROR_CHATID=""
-
 
 # Turning off server after build or no
 POWEROFF="false"
@@ -26,6 +24,7 @@ ROOT_DIRECTORY="$(pwd)"
 
 # Post Constants. Required variables for posting purposes.
 ROM_NAME="$(sed "s#.*/##" <<<"$(pwd)")"
+ANDROID_VERSION=$(grep -oP '(?<=android-)[0-9]+' .repo/manifests/default.xml | head -n1)
 OUT="$(pwd)/out/target/product/$DEVICE"
 STICKER_URL="https://raw.githubusercontent.com/Weebo354342432/reimagined-enigma/main/update.webp"
 
@@ -179,29 +178,6 @@ if [ -f "$ROOT_DIRECTORY/build.log" ]; then
     rm -f "$ROOT_DIRECTORY/build.log"
 fi
 
-
-
-# Function to post changelog from a given path and title
-post_changelog() {
-    local dir_path=$1
-    local title=$2
-
-    if [ -d "$dir_path" ]; then
-        cd "$dir_path" || return
-        CHANGELOG=$(git log --pretty=format:"• %s" -5)
-        send_message "<b>$title Changelogs</b>%0A$CHANGELOG" "$CONFIG_CHATID"
-        cd "$ROOT_DIRECTORY || exit
-    else
-        send_message "<b>$title Changelogs</b>%0A<code>Directory not found: $dir_path</code>" "$CONFIG_CHATID"
-    fi
-}
-
-# Post changelogs
-post_changelog "device/$OEM/$DEVICE" "📱 Device Tree"
-post_changelog "vendor/$OEM/$DEVICE" "🏭 Vendor Tree"
-post_changelog "kernel/$OEM/$DEVICE" "🔧 Kernel Tree"
-
-
 # Jobs Configuration. Determine the number of cores to be used.
 CORE_COUNT=$(nproc --all)
 CONFIG_SYNC_JOBS="$([ "$CORE_COUNT" -gt 8 ] && echo "12" || echo "$CORE_COUNT")"
@@ -215,6 +191,7 @@ if [[ -n $SYNC ]]; then
 
 <b>• ROM:</b> <code>$ROM_NAME</code>
 <b>• DEVICE:</b> <code>$DEVICE</code>
+<b>• ANDROID VERSION:</b> <code>$ANDROID_VERSION</code>
 <b>• JOBS:</b> <code>$CONFIG_SYNC_JOBS Cores</code>
 <b>• DIRECTORY:</b> <code>$(pwd)</code>"
 
@@ -244,6 +221,7 @@ if [[ -n $SYNC ]]; then
 
 <b>• ROM:</b> <code>$ROM_NAME</code>
 <b>• DEVICE:</b> <code>$DEVICE</code>
+<b>• ANDROID VERSION:</b> <code>$ANDROID_VERSION</code>
 <b>• JOBS:</b> <code>$CONFIG_SYNC_JOBS Cores</code>
 <b>• DIRECTORY:</b> <code>$(pwd)</code>
 
@@ -275,6 +253,7 @@ build_start_message="🟡 | <i>Compiling ROM...</i>
 
 <b>• ROM:</b> <code>$ROM_NAME</code>
 <b>• DEVICE:</b> <code>$DEVICE</code>
+<b>• ANDROID VERSION:</b> <code>$ANDROID_VERSION</code>
 <b>• JOBS:</b> <code>$CONFIG_COMPILE_JOBS Cores</code>
 <b>• TYPE:</b> <code>$([ "$OFFICIAL" == "1" ] && echo "Official" || echo "Unofficial")</code>
 <b>• PROGRESS</b>: <code>Brunching...</code>"
@@ -314,6 +293,7 @@ until [ -z "$(jobs -r)" ]; do
 
 <b>• ROM:</b> <code>$ROM_NAME</code>
 <b>• DEVICE:</b> <code>$DEVICE</code>
+<b>• ANDROID VERSION:</b> <code>$ANDROID_VERSION</code>
 <b>• JOBS:</b> <code>$CONFIG_COMPILE_JOBS Cores</code>
 <b>• TYPE:</b> <code>$([ "$OFFICIAL" == "1" ] && echo "Official" || echo "Unofficial")</code>
 <b>• PROGRESS:</b> <code>$(fetch_progress)</code>"
@@ -329,6 +309,7 @@ build_progress_message="🟡 | <i>Compiling ROM...</i>
 
 <b>• ROM:</b> <code>$ROM_NAME</code>
 <b>• DEVICE:</b> <code>$DEVICE</code>
+<b>• ANDROID VERSION:</b> <code>$ANDROID_VERSION</code>
 <b>• JOBS:</b> <code>$CONFIG_COMPILE_JOBS Cores</code>
 <b>• TYPE:</b> <code>$([ "$OFFICIAL" == "1" ] && echo "Official" || echo "Unofficial")</code>
 <b>• PROGRESS:</b> <code>$(fetch_progress)</code>"
@@ -373,6 +354,7 @@ else
 
 <b>• ROM:</b> <code>$ROM_NAME</code>
 <b>• DEVICE:</b> <code>$DEVICE</code>
+<b>• ANDROID VERSION:</b> <code>$ANDROID_VERSION</code>
 <b>• TYPE:</b> <code>$([ "$OFFICIAL" == "1" ] && echo "Official" || echo "Unofficial")</code>
 <b>• SIZE:</b> <code>$zip_file_size</code>
 <b>• MD5SUM:</b> <code>$zip_file_md5sum</code>
