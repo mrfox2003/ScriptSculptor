@@ -118,8 +118,8 @@ export zipname="MerakiKernel-KSU-sweet-${date}.zip"
 export PATH="$HOME/kernel-compiler/gcc64/bin:$HOME/kernel-compiler/gcc32/bin:$PATH"
 export STRIP="$HOME/kernel-compiler/gcc64/aarch64-elf/bin/strip"
 export KBUILD_COMPILER_STRING=$("$HOME"/kernel-compiler/gcc64/bin/aarch64-elf-gcc --version | head -n 1)
-export PATH="$HOME/kernel-compiler/clang/bin:$PATH"
-export KBUILD_COMPILER_STRING=$("$HOME"/kernel-compiler/clang/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
+export PATH="$HOME/kernel-compiler/clang/clang-r547379/bin:$PATH"
+export KBUILD_COMPILER_STRING=$("$HOME"/kernel-compiler/clang/clang-r547379/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 
 # Notify Telegram about the start of compilation
 tg_post_msg "Kernel SU compilation started for device 'Sweet'."
