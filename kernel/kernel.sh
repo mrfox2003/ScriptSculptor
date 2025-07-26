@@ -47,7 +47,7 @@ if [ -d "$HOME/kernel-compiler/clang" ]; then
     echo -e "$green Clang directory already exists. Skipping clone. $white"
 else
     echo -e "$green Cloning Clang... $white"
-    git clone -b 14 --depth=1 https://bitbucket.org/shuttercat/clang "$HOME"/kernel-compiler/clang
+    git clone -b main --depth=1  https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 "$HOME"/kernel-compiler/clang
     echo -e "$green Clang cloned successfully. $white"
 fi
 
