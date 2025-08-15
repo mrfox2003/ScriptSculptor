@@ -33,7 +33,7 @@ def clone_repo(url, path, depth=None, branch=None):
 repos = {
     "device/xiaomi/sweet": "https://github.com/narikootam-dev/device_xiaomi_sweet",
     "vendor/xiaomi/sweet": "https://github.com/narikootam-dev/vendor_xiaomi_sweet",
-    "kernel/xiaomi/sweet": "https://github.com/narikootam-dev/kernel_xiaomi_msm4.14",
+    "kernel/xiaomi/sweet": "https://github.com/narikootam-dev/kernel_xiaomi_sweet",
     "hardware/dolby": "https://github.com/narikootam-dev/hardware_dolby",
     "hardware/xiaomi": "https://github.com/narikootam-dev/hardware_xiaomi",
     "$HOME/.android-certs": "https://github.com/yunluo-testzone/.android-certs",
