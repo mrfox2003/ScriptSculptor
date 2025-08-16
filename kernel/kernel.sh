@@ -4,26 +4,47 @@
 
 TG_CHAT="chat_token" 
 TG_BOT="bot_token"
+TG_TOPIC=""   # leave empty to post in main chat; set to topic ID (e.g., 6752) to post in a topic
 
 # Function to send message to Telegram
 tg_post_msg() {
-    curl -s -X POST "https://api.telegram.org/bot$TG_BOT/sendMessage" \
-    -d chat_id="$TG_CHAT" \
-    -d "disable_web_page_preview=true" \
-    -d "parse_mode=html" \
-    -d text="$1"
+    local url="https://api.telegram.org/bot$TG_BOT/sendMessage"
+    if [[ -n "$TG_TOPIC" ]]; then
+        curl -s -X POST "$url" \
+        -d chat_id="$TG_CHAT" \
+        -d message_thread_id="$TG_TOPIC" \
+        -d "disable_web_page_preview=true" \
+        -d "parse_mode=html" \
+        -d text="$1"
+    else
+        curl -s -X POST "$url" \
+        -d chat_id="$TG_CHAT" \
+        -d "disable_web_page_preview=true" \
+        -d "parse_mode=html" \
+        -d text="$1"
+    fi
 }
 
 # Function to send document to Telegram
 tg_post_doc() {
-    curl --progress-bar -F document=@"$1" "https://api.telegram.org/bot$TG_BOT/sendDocument" \
-    -F chat_id="$TG_CHAT"  \
-    -F "disable_web_page_preview=true" \
-    -F "parse_mode=html" \
-    -F caption="$2"
+    local url="https://api.telegram.org/bot$TG_BOT/sendDocument"
+    if [[ -n "$TG_TOPIC" ]]; then
+        curl --progress-bar -F document=@"$1" "$url" \
+        -F chat_id="$TG_CHAT" \
+        -F message_thread_id="$TG_TOPIC" \
+        -F "disable_web_page_preview=true" \
+        -F "parse_mode=html" \
+        -F caption="$2"
+    else
+        curl --progress-bar -F document=@"$1" "$url" \
+        -F chat_id="$TG_CHAT"  \
+        -F "disable_web_page_preview=true" \
+        -F "parse_mode=html" \
+        -F caption="$2"
+    fi
 }
 
-# Function to pin a message in Telegram
+# Function to pin a message in Telegram 
 pin_message() {
     curl -s -X POST "https://api.telegram.org/bot$TG_BOT/pinChatMessage" \
     -d chat_id="$1" \
@@ -129,13 +150,22 @@ if [ -f "out/arch/arm64/boot/Image.gz" ] && [ -f "out/arch/arm64/boot/dtbo.img" 
     echo ""
     echo -e "Kernel package '${zipname}' is ready!"
     echo ""
-   BUILD_MSG=$(curl -s -X POST "https://api.telegram.org/bot$TG_BOT/sendMessage" \
-     -d chat_id="$TG_CHAT" \
-     -d "disable_web_page_preview=true" \
-     -d "parse_mode=html" \
-     -d text="Kernel package '${zipname}' is ready!")
-   BUILD_MSG_ID=$(echo "$BUILD_MSG" | jq -r '.result.message_id') 
-   pin_message "$TG_CHAT" "$BUILD_MSG_ID"
+    if [[ -n "$TG_TOPIC" ]]; then
+        BUILD_MSG=$(curl -s -X POST "https://api.telegram.org/bot$TG_BOT/sendMessage" \
+            -d chat_id="$TG_CHAT" \
+            -d message_thread_id="$TG_TOPIC" \
+            -d "disable_web_page_preview=true" \
+            -d "parse_mode=html" \
+            -d text="Kernel package '${zipname}' is ready!")
+    else
+        BUILD_MSG=$(curl -s -X POST "https://api.telegram.org/bot$TG_BOT/sendMessage" \
+            -d chat_id="$TG_CHAT" \
+            -d "disable_web_page_preview=true" \
+            -d "parse_mode=html" \
+            -d text="Kernel package '${zipname}' is ready!")
+    fi
+    BUILD_MSG_ID=$(echo "$BUILD_MSG" | jq -r '.result.message_id') 
+    pin_message "$TG_CHAT" "$BUILD_MSG_ID"
     rm -rf out
     rm -rf error.log
     tg_post_doc "${zipname}"
