@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 # Build Configuration. Required variables to compile the ROM.
@@ -10,6 +11,7 @@ CONFIG_OFFICIAL_FLAG="1"
 CONFIG_CHATID="" 
 CONFIG_BOT_TOKEN="" 
 CONFIG_ERROR_CHATID=""
+CONFIG_TOPIC_ID="" 
 
 # Turning off server after build or no
 POWEROFF="false"
@@ -88,6 +90,7 @@ export BOT_PIN_URL="https://api.telegram.org/bot$CONFIG_BOT_TOKEN/pinChatMessage
 
 send_message() {
     local RESPONSE=$(curl "$BOT_MESSAGE_URL" -d chat_id="$2" \
+        -d message_thread_id="$CONFIG_TOPIC_ID" \
         -d "parse_mode=html" \
         -d "disable_web_page_preview=true" \
         -d text="$1")
@@ -97,6 +100,7 @@ send_message() {
 
 edit_message() {
     curl "$BOT_EDIT_MESSAGE_URL" -d chat_id="$2" \
+        -d message_thread_id="$CONFIG_TOPIC_ID" \
         -d "parse_mode=html" \
         -d "message_id=$3" \
         -d text="$1"
@@ -104,6 +108,7 @@ edit_message() {
 
 send_file() {
     curl --progress-bar -F document=@"$1" "$BOT_FILE_URL" \
+        -d message_thread_id="$CONFIG_TOPIC_ID" \
         -F chat_id="$2" \
         -F "disable_web_page_preview=true" \
         -F "parse_mode=html"
@@ -116,6 +121,7 @@ send_sticker() {
 
     curl "$BOT_STICKER_URL" -F sticker=@"$STICKER_FILE" \
         -F chat_id="$2" \
+        -F message_thread_id="$CONFIG_TOPIC_ID" \
         -F "is_animated=false" \
         -F "is_video=false"
 }
@@ -136,6 +142,7 @@ upload_file() {
 
 send_message_to_error_chat() {
     local response=$(curl -s -X POST "$BOT_MESSAGE_URL" -d chat_id="$CONFIG_ERROR_CHATID" \
+        -d message_thread_id="$CONFIG_TOPIC_ID" \
         -d "parse_mode=html" \
         -d "disable_web_page_preview=true" \
         -d text="$1")
@@ -146,6 +153,7 @@ send_message_to_error_chat() {
 send_file_to_error_chat() {
     curl --progress-bar -F document=@"$1" "$BOT_FILE_URL" \
         -F chat_id="$CONFIG_ERROR_CHATID" \
+        -F message_thread_id="$CONFIG_TOPIC_ID" \
         -F "disable_web_page_preview=true" \
         -F "parse_mode=html"
 }
