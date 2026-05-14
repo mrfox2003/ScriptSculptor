@@ -173,4 +173,5 @@ if [ -f "out/arch/arm64/boot/Image.gz" ] && [ -f "out/arch/arm64/boot/dtbo.img" 
 else
     tg_post_msg "Kernel build failed."
     tg_post_doc "error.log" 
+    rm error.log
 fi
