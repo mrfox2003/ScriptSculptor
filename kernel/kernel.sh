@@ -114,7 +114,10 @@ echo -e "$blue***********************************************"
 echo "          STARTING KERNEL BUILD          "
 echo -e "***********************************************$nocol"
 make $KERNEL_DEFCONFIG O=out CC=clang
-make -j$(nproc --all) O=out \
+# Ensure pipeline failures are propagated and use a unique temp logfile
+set -o pipefail
+error_log="$(mktemp /tmp/error.XXXXXX.log)"
+make -j"$(nproc --all)" O=out \
                               ARCH=arm64 \
                               LLVM=1 \
                               LLVM_IAS=1 \
@@ -126,7 +129,15 @@ make -j$(nproc --all) O=out \
                               STRIP=llvm-strip \
                               CC=clang \
                               CROSS_COMPILE=aarch64-linux-gnu- \
-                              CROSS_COMPILE_ARM32=arm-linux-gnueabi-  2>&1 |& tee error.log
+                              CROSS_COMPILE_ARM32=arm-linux-gnueabi- 2>&1 | tee "$error_log"
+
+make_status=${PIPESTATUS[0]}
+if [ "$make_status" -ne 0 ]; then
+    tg_post_msg "Kernel build failed (make exit code: $make_status)."
+    tg_post_doc "$error_log"
+    rm -f "$error_log"
+    exit "$make_status"
+fi
 
 # Check if build was successful
 export IMG="$MY_DIR"/out/arch/arm64/boot/Image.gz
@@ -167,11 +178,11 @@ if [ -f "out/arch/arm64/boot/Image.gz" ] && [ -f "out/arch/arm64/boot/dtbo.img" 
     BUILD_MSG_ID=$(echo "$BUILD_MSG" | jq -r '.result.message_id') 
     pin_message "$TG_CHAT" "$BUILD_MSG_ID"
     rm -rf out
-    rm -rf error.log
+    rm -f "$error_log"
     tg_post_doc "${zipname}"
     rm -rf ${zipname}
 else
     tg_post_msg "Kernel build failed."
-    tg_post_doc "error.log" 
-    rm error.log
+    tg_post_doc "$error_log"
+    rm -f "$error_log"
 fi
