@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -Eeuo pipefail
 #Replace links accordingly
 
 green='\033[0;32m'
@@ -8,6 +8,27 @@ white='\033[0m'
 TG_CHAT="chat_token" 
 TG_BOT="bot_token"
 TG_TOPIC=""   # leave empty to post in main chat; set to topic ID (e.g., 6752) to post in a topic
+
+error_log="$(mktemp /tmp/error.XXXXXX.log)"
+exec > >(tee -a "$error_log") 2>&1
+
+cleanup() {
+    rm -f "$error_log"
+}
+
+on_error() {
+    local exit_code="$1"
+    local line_no="$2"
+
+    trap - ERR
+    set +e
+    tg_post_msg "Kernel build failed at line $line_no (exit code: $exit_code)."
+    tg_post_doc "$error_log"
+    exit "$exit_code"
+}
+
+trap cleanup EXIT
+trap 'on_error "$?" "$LINENO"' ERR
 
 # Function to send message to Telegram
 tg_post_msg() {
@@ -31,19 +52,20 @@ tg_post_msg() {
 # Function to send document to Telegram
 tg_post_doc() {
     local url="https://api.telegram.org/bot$TG_BOT/sendDocument"
+    local caption="${2-}"
     if [[ -n "$TG_TOPIC" ]]; then
         curl --progress-bar -F document=@"$1" "$url" \
         -F chat_id="$TG_CHAT" \
         -F message_thread_id="$TG_TOPIC" \
         -F "disable_web_page_preview=true" \
         -F "parse_mode=html" \
-        -F caption="$2"
+        -F caption="$caption"
     else
         curl --progress-bar -F document=@"$1" "$url" \
         -F chat_id="$TG_CHAT"  \
         -F "disable_web_page_preview=true" \
         -F "parse_mode=html" \
-        -F caption="$2"
+        -F caption="$caption"
     fi
 }
 
@@ -118,9 +140,6 @@ echo -e "$blue***********************************************"
 echo "          STARTING KERNEL BUILD          "
 echo -e "***********************************************$nocol"
 make $KERNEL_DEFCONFIG O=out CC=clang
-# Ensure pipeline failures are propagated and use a unique temp logfile
-set -o pipefail
-error_log="$(mktemp /tmp/error.XXXXXX.log)"
 make -j"$(nproc --all)" O=out \
                               ARCH=arm64 \
                               LLVM=1 \
@@ -133,15 +152,7 @@ make -j"$(nproc --all)" O=out \
                               STRIP=llvm-strip \
                               CC=clang \
                               CROSS_COMPILE=aarch64-linux-gnu- \
-                              CROSS_COMPILE_ARM32=arm-linux-gnueabi- 2>&1 | tee "$error_log"
-
-make_status=${PIPESTATUS[0]}
-if [ "$make_status" -ne 0 ]; then
-    tg_post_msg "Kernel build failed (make exit code: $make_status)."
-    tg_post_doc "$error_log"
-    rm -f "$error_log"
-    exit "$make_status"
-fi
+                              CROSS_COMPILE_ARM32=arm-linux-gnueabi-
 
 # Check if build was successful
 export IMG="$MY_DIR"/out/arch/arm64/boot/Image.gz
@@ -182,11 +193,10 @@ if [ -f "out/arch/arm64/boot/Image.gz" ] && [ -f "out/arch/arm64/boot/dtbo.img" 
     BUILD_MSG_ID=$(echo "$BUILD_MSG" | jq -r '.result.message_id') 
     pin_message "$TG_CHAT" "$BUILD_MSG_ID"
     rm -rf out
-    rm -f "$error_log"
     tg_post_doc "${zipname}"
     rm -rf ${zipname}
 else
     tg_post_msg "Kernel build failed."
     tg_post_doc "$error_log"
-    rm -f "$error_log"
+    exit 1
 fi
