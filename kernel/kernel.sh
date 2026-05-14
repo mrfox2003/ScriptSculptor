@@ -25,6 +25,12 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+if [[ "$VARIANT" == "ksu" ]]; then
+    BUILD_LABEL="KernelSU"
+else
+    BUILD_LABEL="Standard"
+fi
+
 green='\033[0;32m'
 white='\033[0m'
 
@@ -52,7 +58,7 @@ on_error() {
 
     trap - ERR
     set +e
-    tg_post_msg "Kernel build failed at line $line_no (exit code: $exit_code)."
+    tg_post_msg "$(printf '🔴 | <b>%s kernel build failed</b>\n<b>Line:</b> <code>%s</code>\n<b>Exit code:</b> <code>%s</code>\n<b>Branch:</b> <code>%s</code>\n<b>Dir:</b> <code>%s</code>' "$BUILD_LABEL" "$line_no" "$exit_code" "$KERNEL_BRANCH" "$KERNEL_DIR")"
     tg_post_doc "$error_log"
     exit "$exit_code"
 }
@@ -171,7 +177,7 @@ start_progress_watcher() {
 
             if [[ "$current_progress" != "$previous_progress" ]]; then
                 local progress_message
-                progress_message=$(printf '🟡 | <i>Compiling Kernel...</i>\n\n<pre>%s</pre>' "$(printf '%s\n' "$current_progress" | escape_html)")
+                progress_message=$(printf '🟡 | <i>Compiling %s kernel...</i>\n<b>Branch:</b> <code>%s</code> | <b>Dir:</b> <code>%s</code>\n\n<pre>%s</pre>' "$BUILD_LABEL" "$KERNEL_BRANCH" "$KERNEL_DIR" "$(printf '%s\n' "$current_progress" | escape_html)")
                 tg_edit_msg "$progress_message" "$message_id"
                 previous_progress="$current_progress"
             fi
@@ -236,7 +242,7 @@ export PATH="$HOME/kernel-compiler/clang/clang-r547379/bin:$PATH"
 export KBUILD_COMPILER_STRING=$("$HOME"/kernel-compiler/clang/clang-r547379/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 
 # Notify Telegram about the start of compilation
-tg_post_msg "Kernel${VARIANT_TAG:+ $VARIANT_TAG} compilation started for device 'Sweet'."
+tg_post_msg "$(printf '🚀 | <b>%s kernel build started</b>\n<b>Device:</b> <code>sweet</code>\n<b>Branch:</b> <code>%s</code>\n<b>Dir:</b> <code>%s</code>\n<b>Defconfig:</b> <code>%s</code>' "$BUILD_LABEL" "$KERNEL_BRANCH" "$KERNEL_DIR" "$KERNEL_DEFCONFIG")"
 COMMIT=$(git log --pretty=format:"%s" -5)
 tg_post_msg "<b>Recent Changelogs:</b>%0A$COMMIT"
 
@@ -253,7 +259,7 @@ echo "**** Kernel defconfig set to $KERNEL_DEFCONFIG ****"
 echo -e "$blue***********************************************"
 echo "          STARTING KERNEL BUILD          "
 echo -e "***********************************************$nocol"
-build_message_id=$(tg_post_msg_id "$(printf '🟡 | <i>Compiling Kernel...</i>\n\n<pre>Initializing the build system...</pre>')")
+build_message_id=$(tg_post_msg_id "$(printf '🟡 | <i>Compiling %s kernel...</i>\n<b>Branch:</b> <code>%s</code> | <b>Dir:</b> <code>%s</code>\n\n<pre>Initializing the build system...</pre>' "$BUILD_LABEL" "$KERNEL_BRANCH" "$KERNEL_DIR")")
 start_progress_watcher "$build_message_id"
 
 (
@@ -289,7 +295,7 @@ if [[ -n "${PROGRESS_WATCHER_PID:-}" ]]; then
 fi
 
 if [[ "$make_status" -ne 0 ]]; then
-    tg_post_msg "Kernel build failed."
+    tg_post_msg "$(printf '🔴 | <b>%s kernel build failed</b>\n<b>Branch:</b> <code>%s</code>\n<b>Dir:</b> <code>%s</code>\n<b>Status:</b> <code>%s</code>' "$BUILD_LABEL" "$KERNEL_BRANCH" "$KERNEL_DIR" "$make_status")"
     tg_post_doc "$error_log"
     exit "$make_status"
 fi
@@ -317,8 +323,9 @@ sed -i "s/is_slot_device=0/is_slot_device=auto/g" anykernel.sh
 zip -r9 "../${zipname}" * -x '*.git*' README.md *placeholder >> /dev/null
 cd ..
 rm -rf AnyKernel3
-echo -e "Build completed in $((SECONDS / 60)) minute(s) and $((SECONDS % 60)) second(s)!"
-tg_post_msg "Build completed in $((SECONDS / 60)) minute(s) and $((SECONDS % 60)) second(s)!"
+BUILD_ELAPSED="$((SECONDS / 60)) minute(s) and $((SECONDS % 60)) second(s)"
+echo -e "Build completed in ${BUILD_ELAPSED}!"
+tg_post_msg "$(printf '✅ | <b>%s kernel build completed</b>\n<b>Device:</b> <code>sweet</code>\n<b>Branch:</b> <code>%s</code>\n<b>Duration:</b> <code>%s</code>' "$BUILD_LABEL" "$KERNEL_BRANCH" "$BUILD_ELAPSED")"
 echo ""
 echo -e "Kernel package '${zipname}' is ready!"
 echo ""
@@ -328,13 +335,13 @@ if [[ -n "$TG_TOPIC" ]]; then
         -d message_thread_id="$TG_TOPIC" \
         -d "disable_web_page_preview=true" \
         -d "parse_mode=html" \
-        -d text="Kernel package '${zipname}' is ready!")
+        -d text="📦 | <b>Package ready</b>%0A<b>Variant:</b> <code>${BUILD_LABEL}</code>%0A<b>Artifact:</b> <code>${zipname}</code>")
 else
     BUILD_MSG=$(curl -s -X POST "https://api.telegram.org/bot$TG_BOT/sendMessage" \
         -d chat_id="$TG_CHAT" \
         -d "disable_web_page_preview=true" \
         -d "parse_mode=html" \
-        -d text="Kernel package '${zipname}' is ready!")
+        -d text="📦 | <b>Package ready</b>%0A<b>Variant:</b> <code>${BUILD_LABEL}</code>%0A<b>Artifact:</b> <code>${zipname}</code>")
 fi
 BUILD_MSG_ID=$(echo "$BUILD_MSG" | jq -r '.result.message_id') 
 pin_message "$TG_CHAT" "$BUILD_MSG_ID"
