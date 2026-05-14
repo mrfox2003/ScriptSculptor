@@ -10,10 +10,17 @@ TG_BOT="bot_token"
 TG_TOPIC=""   # leave empty to post in main chat; set to topic ID (e.g., 6752) to post in a topic
 
 error_log="$(mktemp /tmp/error.XXXXXX.log)"
+build_log="$(mktemp /tmp/build.XXXXXX.log)"
+build_status="$(mktemp /tmp/build_status.XXXXXX)"
 exec > >(tee -a "$error_log") 2>&1
 
 cleanup() {
+    if [[ -n "${PROGRESS_WATCHER_PID:-}" ]]; then
+        kill "$PROGRESS_WATCHER_PID" 2>/dev/null || true
+    fi
     rm -f "$error_log"
+    rm -f "$build_log"
+    rm -f "$build_status"
 }
 
 on_error() {
@@ -67,6 +74,90 @@ tg_post_doc() {
         -F "parse_mode=html" \
         -F caption="$caption"
     fi
+}
+
+tg_post_msg_id() {
+    local url="https://api.telegram.org/bot$TG_BOT/sendMessage"
+    local response
+
+    if [[ -n "$TG_TOPIC" ]]; then
+        response=$(curl -s -X POST "$url" \
+            -d chat_id="$TG_CHAT" \
+            -d message_thread_id="$TG_TOPIC" \
+            -d "disable_web_page_preview=true" \
+            -d "parse_mode=html" \
+            -d text="$1")
+    else
+        response=$(curl -s -X POST "$url" \
+            -d chat_id="$TG_CHAT" \
+            -d "disable_web_page_preview=true" \
+            -d "parse_mode=html" \
+            -d text="$1")
+    fi
+
+    echo "$response" | jq -r '.result.message_id'
+}
+
+tg_edit_msg() {
+    local url="https://api.telegram.org/bot$TG_BOT/editMessageText"
+
+    if [[ -n "$TG_TOPIC" ]]; then
+        curl -s -X POST "$url" \
+            -d chat_id="$TG_CHAT" \
+            -d message_thread_id="$TG_TOPIC" \
+            -d message_id="$2" \
+            -d "disable_web_page_preview=true" \
+            -d "parse_mode=html" \
+            -d text="$1" >/dev/null
+    else
+        curl -s -X POST "$url" \
+            -d chat_id="$TG_CHAT" \
+            -d message_id="$2" \
+            -d "disable_web_page_preview=true" \
+            -d "parse_mode=html" \
+            -d text="$1" >/dev/null
+    fi
+}
+
+escape_html() {
+    sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'
+}
+
+fetch_progress() {
+    local progress
+    progress="$(
+        tail -n 6 "$build_log" 2>/dev/null | sed '/^$/d' || true
+    )"
+
+    if [[ -z "$progress" ]]; then
+        echo "Initializing the build system..."
+    else
+        printf '%s\n' "$progress"
+    fi
+}
+
+start_progress_watcher() {
+    local message_id="$1"
+
+    (
+        local previous_progress=""
+
+        while [[ ! -s "$build_status" ]]; do
+            local current_progress
+            current_progress="$(fetch_progress)"
+
+            if [[ "$current_progress" != "$previous_progress" ]]; then
+                local progress_message
+                progress_message=$(printf '🟡 | <i>Compiling Kernel...</i>\n\n<pre>%s</pre>' "$(printf '%s\n' "$current_progress" | escape_html)")
+                tg_edit_msg "$progress_message" "$message_id"
+                previous_progress="$current_progress"
+            fi
+
+            sleep 5
+        done
+    ) &
+
+    PROGRESS_WATCHER_PID=$!
 }
 
 # Function to pin a message in Telegram 
@@ -139,8 +230,20 @@ echo "**** Kernel defconfig set to $KERNEL_DEFCONFIG ****"
 echo -e "$blue***********************************************"
 echo "          STARTING KERNEL BUILD          "
 echo -e "***********************************************$nocol"
-make $KERNEL_DEFCONFIG O=out CC=clang
-make -j"$(nproc --all)" O=out \
+build_message_id=$(tg_post_msg_id "$(printf '🟡 | <i>Compiling Kernel...</i>\n\n<pre>Initializing the build system...</pre>')")
+start_progress_watcher "$build_message_id"
+
+(
+    set -o pipefail
+    make $KERNEL_DEFCONFIG O=out CC=clang 2>&1 | tee -a "$build_log"
+    defconfig_status=$?
+
+    if [[ "$defconfig_status" -ne 0 ]]; then
+        printf '%s\n' "$defconfig_status" > "$build_status"
+        exit 0
+    fi
+
+    make -j"$(nproc --all)" O=out \
                               ARCH=arm64 \
                               LLVM=1 \
                               LLVM_IAS=1 \
@@ -152,7 +255,21 @@ make -j"$(nproc --all)" O=out \
                               STRIP=llvm-strip \
                               CC=clang \
                               CROSS_COMPILE=aarch64-linux-gnu- \
-                              CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+                              CROSS_COMPILE_ARM32=arm-linux-gnueabi- 2>&1 | tee -a "$build_log"
+    printf '%s\n' "$?" > "$build_status"
+)
+
+make_status=$(cat "$build_status")
+if [[ -n "${PROGRESS_WATCHER_PID:-}" ]]; then
+    kill "$PROGRESS_WATCHER_PID" 2>/dev/null || true
+    wait "$PROGRESS_WATCHER_PID" 2>/dev/null || true
+fi
+
+if [[ "$make_status" -ne 0 ]]; then
+    tg_post_msg "Kernel build failed."
+    tg_post_doc "$error_log"
+    exit "$make_status"
+fi
 
 require_file() {
     [[ -f "$1" ]]
