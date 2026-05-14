@@ -154,49 +154,50 @@ make -j"$(nproc --all)" O=out \
                               CROSS_COMPILE=aarch64-linux-gnu- \
                               CROSS_COMPILE_ARM32=arm-linux-gnueabi-
 
-# Check if build was successful
+require_file() {
+    [[ -f "$1" ]]
+}
+
+require_file out/arch/arm64/boot/Image.gz
+require_file out/arch/arm64/boot/dtbo.img
+
 export IMG="$MY_DIR"/out/arch/arm64/boot/Image.gz
 export dtbo="$MY_DIR"/out/arch/arm64/boot/dtbo.img
 export dtb="$MY_DIR"/out/arch/arm64/boot/dtb.img
 
 find out/arch/arm64/boot/dts/ -name '*.dtb' -exec cat {} + >out/arch/arm64/boot/dtb
-if [ -f "out/arch/arm64/boot/Image.gz" ] && [ -f "out/arch/arm64/boot/dtbo.img" ] && [ -f "out/arch/arm64/boot/dtb" ]; then
-    git clone -q https://github.com/narikootam-dev/AnyKernel3
-    cp out/arch/arm64/boot/Image.gz AnyKernel3
-    cp out/arch/arm64/boot/dtb AnyKernel3
-    cp out/arch/arm64/boot/dtbo.img AnyKernel3
-    rm -f *zip
-    cd AnyKernel3
-    sed -i "s/is_slot_device=0/is_slot_device=auto/g" anykernel.sh
-    zip -r9 "../${zipname}" * -x '*.git*' README.md *placeholder >> /dev/null
-    cd ..
-    rm -rf AnyKernel3
-    echo -e "Build completed in $((SECONDS / 60)) minute(s) and $((SECONDS % 60)) second(s)!"
-    tg_post_msg "Build completed in $((SECONDS / 60)) minute(s) and $((SECONDS % 60)) second(s)!"
-    echo ""
-    echo -e "Kernel package '${zipname}' is ready!"
-    echo ""
-    if [[ -n "$TG_TOPIC" ]]; then
-        BUILD_MSG=$(curl -s -X POST "https://api.telegram.org/bot$TG_BOT/sendMessage" \
-            -d chat_id="$TG_CHAT" \
-            -d message_thread_id="$TG_TOPIC" \
-            -d "disable_web_page_preview=true" \
-            -d "parse_mode=html" \
-            -d text="Kernel package '${zipname}' is ready!")
-    else
-        BUILD_MSG=$(curl -s -X POST "https://api.telegram.org/bot$TG_BOT/sendMessage" \
-            -d chat_id="$TG_CHAT" \
-            -d "disable_web_page_preview=true" \
-            -d "parse_mode=html" \
-            -d text="Kernel package '${zipname}' is ready!")
-    fi
-    BUILD_MSG_ID=$(echo "$BUILD_MSG" | jq -r '.result.message_id') 
-    pin_message "$TG_CHAT" "$BUILD_MSG_ID"
-    rm -rf out
-    tg_post_doc "${zipname}"
-    rm -rf ${zipname}
+require_file out/arch/arm64/boot/dtb
+git clone -q https://github.com/narikootam-dev/AnyKernel3
+cp out/arch/arm64/boot/Image.gz AnyKernel3
+cp out/arch/arm64/boot/dtb AnyKernel3
+cp out/arch/arm64/boot/dtbo.img AnyKernel3
+rm -f *zip
+cd AnyKernel3
+sed -i "s/is_slot_device=0/is_slot_device=auto/g" anykernel.sh
+zip -r9 "../${zipname}" * -x '*.git*' README.md *placeholder >> /dev/null
+cd ..
+rm -rf AnyKernel3
+echo -e "Build completed in $((SECONDS / 60)) minute(s) and $((SECONDS % 60)) second(s)!"
+tg_post_msg "Build completed in $((SECONDS / 60)) minute(s) and $((SECONDS % 60)) second(s)!"
+echo ""
+echo -e "Kernel package '${zipname}' is ready!"
+echo ""
+if [[ -n "$TG_TOPIC" ]]; then
+    BUILD_MSG=$(curl -s -X POST "https://api.telegram.org/bot$TG_BOT/sendMessage" \
+        -d chat_id="$TG_CHAT" \
+        -d message_thread_id="$TG_TOPIC" \
+        -d "disable_web_page_preview=true" \
+        -d "parse_mode=html" \
+        -d text="Kernel package '${zipname}' is ready!")
 else
-    tg_post_msg "Kernel build failed."
-    tg_post_doc "$error_log"
-    exit 1
+    BUILD_MSG=$(curl -s -X POST "https://api.telegram.org/bot$TG_BOT/sendMessage" \
+        -d chat_id="$TG_CHAT" \
+        -d "disable_web_page_preview=true" \
+        -d "parse_mode=html" \
+        -d text="Kernel package '${zipname}' is ready!")
 fi
+BUILD_MSG_ID=$(echo "$BUILD_MSG" | jq -r '.result.message_id') 
+pin_message "$TG_CHAT" "$BUILD_MSG_ID"
+rm -rf out
+tg_post_doc "${zipname}"
+rm -rf ${zipname}
