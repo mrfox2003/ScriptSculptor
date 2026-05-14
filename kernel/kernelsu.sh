@@ -1,6 +1,9 @@
 #!/bin/bash
-#set -e
+set -euo pipefail
 #Replace links accordingly
+
+green='\033[0;32m'
+white='\033[0m'
 
 TG_CHAT="chat_token" 
 TG_BOT="bot_token"
@@ -84,6 +87,7 @@ fi
 
 # Begin kernel compilation
 cd kernelsu
+MY_DIR="$(pwd)"
 KERNEL_DEFCONFIG=vendor/sweet_user_defconfig
 date=$(date +"%Y-%m-%d-%H%M")
 export ARCH=arm64
