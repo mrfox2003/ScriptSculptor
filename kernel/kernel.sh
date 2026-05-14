@@ -2,6 +2,29 @@
 set -Eeuo pipefail
 #Replace links accordingly
 
+# Parse command-line flags
+VARIANT="standard"
+KERNEL_DIR="kernel"
+KERNEL_BRANCH="16.0"
+VARIANT_TAG=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -ksu|--kernelsu)
+            VARIANT="ksu"
+            KERNEL_DIR="kernelsu"
+            KERNEL_BRANCH="ksu-16.0"
+            VARIANT_TAG="-KSU"
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [-ksu]"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
 green='\033[0;32m'
 white='\033[0m'
 
@@ -190,22 +213,22 @@ fi
 
 # Initialize Kernel
 echo -e "$green Checking for Kernel directory... $white"
-if [ -d "kernel" ]; then
-    echo -e "$green Kernel directory 'kernel' already exists. Skipping clone. $white"
+if [ -d "$KERNEL_DIR" ]; then
+    echo -e "$green Kernel directory '$KERNEL_DIR' already exists. Skipping clone. $white"
 else
     echo -e "$green Cloning Kernel repository... $white"
-    git clone https://github.com/narikootam-dev/kernel_xiaomi_sweet -b 16.0 kernel
+    git clone https://github.com/narikootam-dev/kernel_xiaomi_sweet -b "$KERNEL_BRANCH" "$KERNEL_DIR"
     echo -e "$green Kernel repository cloned successfully. $white"
 fi
 
 # Begin kernel compilation
-cd kernel
+cd "$KERNEL_DIR"
 MY_DIR="$(pwd)"
 KERNEL_DEFCONFIG=vendor/sweet_user_defconfig
 date=$(date +"%Y-%m-%d-%H%M")
 export ARCH=arm64
 export SUBARCH=arm64
-export zipname="MerakiKernel-sweet-${date}.zip"
+export zipname="MerakiKernel${VARIANT_TAG}-sweet-${date}.zip"
 export PATH="$HOME/kernel-compiler/gcc64/bin:$HOME/kernel-compiler/gcc32/bin:$PATH"
 export STRIP="$HOME/kernel-compiler/gcc64/aarch64-elf/bin/strip"
 export KBUILD_COMPILER_STRING=$("$HOME"/kernel-compiler/gcc64/bin/aarch64-elf-gcc --version | head -n 1)
@@ -213,7 +236,7 @@ export PATH="$HOME/kernel-compiler/clang/clang-r547379/bin:$PATH"
 export KBUILD_COMPILER_STRING=$("$HOME"/kernel-compiler/clang/clang-r547379/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 
 # Notify Telegram about the start of compilation
-tg_post_msg "Kernel SU compilation started for device 'Sweet'."
+tg_post_msg "Kernel${VARIANT_TAG:+ $VARIANT_TAG} compilation started for device 'Sweet'."
 COMMIT=$(git log --pretty=format:"%s" -5)
 tg_post_msg "<b>Recent Changelogs:</b>%0A$COMMIT"
 
