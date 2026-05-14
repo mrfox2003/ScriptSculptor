@@ -96,7 +96,7 @@ export PATH="$HOME/kernel-compiler/clang/clang-r547379/bin:$PATH"
 export KBUILD_COMPILER_STRING=$("$HOME"/kernel-compiler/clang/clang-r547379/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 
 # Notify Telegram about the start of compilation
-tg_post_msg "Kernel compilation started for device 'Sweet'."
+tg_post_msg "Kernel SU compilation started for device 'Sweet'."
 COMMIT=$(git log --pretty=format:"%s" -5)
 tg_post_msg "<b>Recent Changelogs:</b>%0A$COMMIT"
 

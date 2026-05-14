@@ -44,13 +44,12 @@ tg_post_doc() {
     fi
 }
 
-# Function to pin a message in Telegram
+# Function to pin a message in Telegram 
 pin_message() {
     curl -s -X POST "https://api.telegram.org/bot$TG_BOT/pinChatMessage" \
     -d chat_id="$1" \
     -d message_id="$2"
 }
-
 
 # Initialize Toolchains
 echo -e "$green Checking for GCC directories... $white"
@@ -83,52 +82,6 @@ else
     echo -e "$green Kernel repository cloned successfully. $white"
 fi
 
-# Initialize Kernel SU
-KERNELSU_DIR="kernelsu/KernelSU-Next"
-KERNEL_DIR=kernelsu
-
-# --- Integrate KernelSU-Next ---
-echo -e "$green Integrating KernelSU-Next... $white"
-if [ -d "$KERNELSU_DIR" ]; then
-    echo -e "$green Kernel directory 'KernelSU-Next' already exists. Skipping clone. $white"
-else
-    echo -e "$green Cloning KernelSU-Next... $white"
-    git clone https://github.com/narikootam-dev/KernelSU-Next "$KERNELSU_DIR"
-    echo -e "$green KernelSU-Next  cloned successfully. $white"
-fi
-
-# --- Determine driver directory ---
-if [ -d "$$KERNEL_DIR/common/drivers" ]; then
-  DRIVER_DIR="$KERNEL_DIR/common/drivers"
-elif [ -d "$KERNEL_DIR/drivers" ]; then
-  DRIVER_DIR="$KERNEL_DIR/drivers"
-else
-  handle_error '"drivers/" directory not found'
-fi
-
-# --- Create a symlink for KernelSU ---
-
-echo -e "$green Creating symlink for KernelSU.. $white"
-ln -sf "$(realpath --relative-to="$DRIVER_DIR" "$KERNELSU_DIR/kernel")" "$DRIVER_DIR/kernelsu"
-echo -e "$green Symlink created $white"
-
-# --- Modify Makefile and Kconfig ---
-DRIVER_MAKEFILE="$DRIVER_DIR/Makefile"
-DRIVER_KCONFIG="$DRIVER_DIR/Kconfig"
-
-echo -e "$green Modifying Kconfig... $white"
-if ! grep -q "kernelsu" "$DRIVER_MAKEFILE"; then
-  printf "\nobj-\$(CONFIG_KSU) += kernelsu/\n" >> "$DRIVER_MAKEFILE"
-echo -e "$green Makefile modified. $white"
-fi
-
-echo -e "$green Modifying Kconfig... $white"
-if ! grep -q "source \"drivers/kernelsu/Kconfig\"" "$DRIVER_KCONFIG"; then
-  sed -i "/endmenu/i\source \"drivers/kernelsu/Kconfig\"" "$DRIVER_KCONFIG"
-echo -e "$green Kconfig modified.. $white"
-
-fi
-
 # Begin kernel compilation
 cd kernelsu
 KERNEL_DEFCONFIG=vendor/sweet_user_defconfig
@@ -143,7 +96,7 @@ export PATH="$HOME/kernel-compiler/clang/clang-r547379/bin:$PATH"
 export KBUILD_COMPILER_STRING=$("$HOME"/kernel-compiler/clang/clang-r547379/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 
 # Notify Telegram about the start of compilation
-tg_post_msg "Kernel SU compilation started for device 'Sweet'."
+tg_post_msg "Kernel compilation started for device 'Sweet'."
 COMMIT=$(git log --pretty=format:"%s" -5)
 tg_post_msg "<b>Recent Changelogs:</b>%0A$COMMIT"
 
@@ -217,15 +170,7 @@ if [ -f "out/arch/arm64/boot/Image.gz" ] && [ -f "out/arch/arm64/boot/dtbo.img" 
     rm -rf error.log
     tg_post_doc "${zipname}"
     rm -rf ${zipname}
-    rm -rf error.log
-    rm -rf KernelSU-Next
-    rm -rf drivers/kernelsu
-    git checkout drivers
 else
     tg_post_msg "Kernel build failed."
     tg_post_doc "error.log" 
-    rm -rf error.log
-    rm -rf KernelSU-Next
-    rm -rf drivers/kernelsu
-    git checkout drivers
 fi
