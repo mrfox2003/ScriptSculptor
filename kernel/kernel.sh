@@ -5,7 +5,7 @@ set -Eeuo pipefail
 # Parse command-line flags
 VARIANT="standard"
 KERNEL_DIR="kernel"
-KERNEL_BRANCH="16.0"
+KERNEL_BRANCH="17.0"
 VARIANT_TAG=""
 
 while [[ $# -gt 0 ]]; do
@@ -13,7 +13,7 @@ while [[ $# -gt 0 ]]; do
         -ksu|--kernelsu)
             VARIANT="ksu"
             KERNEL_DIR="kernelsu"
-            KERNEL_BRANCH="ksu-16.0"
+            KERNEL_BRANCH="ksu-17.0"
             VARIANT_TAG="-KSU"
             ;;
         *)

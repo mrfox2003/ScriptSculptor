@@ -58,12 +58,10 @@ repos = {
     "device/xiaomi/sweet": "https://github.com/narikootam-dev/device_xiaomi_sweet",
     "vendor/xiaomi/sweet": "https://github.com/narikootam-dev/vendor_xiaomi_sweet",
     "kernel/xiaomi/sweet": "https://github.com/narikootam-dev/kernel_xiaomi_sweet",
-    "hardware/dolby": "https://github.com/narikootam-dev/hardware_dolby",
     "$HOME/.android-certs": "https://github.com/yunluo-testzone/.android-certs",
     "vendor/voltage-priv/keys": "https://github.com/narikootam-dev/vendor_voltage-priv_keys",
     "vendor/oneplus/dolby": "https://github.com/narikootam-dev/vendor_oneplus_dolby",
-    "device/xiaomi/miuicamera-sweet": "https://github.com/narikootam-dev/device-xiaomi-miuicamera-sweet",
-    "vendor/xiaomi/miuicamera-sweet": "https://github.com/narikootam-dev/vendor_xiaomi_miuicamera-sweet"
+    "vendor/miuicamera-sweet": "https://github.com/narikootam-dev/vendor_xiaomi_miuicamera-sweet"
 }
 
 # Clone each repository with standard settings (full clone of the default branch)
