@@ -241,6 +241,24 @@ export KBUILD_COMPILER_STRING=$("$HOME"/kernel-compiler/gcc64/bin/aarch64-elf-gc
 export PATH="$HOME/kernel-compiler/clang/clang-r547379/bin:$PATH"
 export KBUILD_COMPILER_STRING=$("$HOME"/kernel-compiler/clang/clang-r547379/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 
+# Explicit ccache configuration
+if ! command -v ccache >/dev/null 2>&1; then
+    echo "ERROR: ccache is not installed or not in PATH."
+    exit 1
+fi
+
+export CCACHE_EXEC="$(command -v ccache)"
+export CCACHE_BASEDIR="$MY_DIR"
+ccache --set-config=compression=true >/dev/null
+ccache --set-config=max_size=100G >/dev/null
+
+# Use ccache explicitly in front of Clang for every C compilation.
+# LLVM=1 is still used so Kbuild uses the LLVM binutils/toolchain.
+export CC="ccache clang"
+
+ccache --show-config | grep -E 'cache_dir|max_size|compression' || true
+ccache --show-stats || true
+
 # Notify Telegram about the start of compilation
 tg_post_msg "$(printf '🚀 | <b>%s kernel build started</b>\n<b>Device:</b> <code>sweet</code>\n<b>Branch:</b> <code>%s</code>\n<b>Dir:</b> <code>%s</code>\n<b>Defconfig:</b> <code>%s</code>' "$BUILD_LABEL" "$KERNEL_BRANCH" "$KERNEL_DIR" "$KERNEL_DEFCONFIG")"
 COMMIT=$(git log --pretty=format:"%s" -5)
@@ -264,7 +282,7 @@ start_progress_watcher "$build_message_id"
 
 (
     set -o pipefail
-    make $KERNEL_DEFCONFIG O=out CC=clang 2>&1 | tee -a "$build_log"
+    make "$KERNEL_DEFCONFIG" O=out CC="$CC" 2>&1 | tee -a "$build_log"
     defconfig_status=$?
 
     if [[ "$defconfig_status" -ne 0 ]]; then
@@ -282,7 +300,7 @@ start_progress_watcher "$build_message_id"
                               OBJCOPY=llvm-objcopy \
                               OBJDUMP=llvm-objdump \
                               STRIP=llvm-strip \
-                              CC=clang \
+                              CC="$CC" \
                               CROSS_COMPILE=aarch64-linux-gnu- \
                               CROSS_COMPILE_ARM32=arm-linux-gnueabi- 2>&1 | tee -a "$build_log"
     printf '%s\n' "$?" > "$build_status"
@@ -297,8 +315,15 @@ fi
 if [[ "$make_status" -ne 0 ]]; then
     tg_post_msg "$(printf '🔴 | <b>%s kernel build failed</b>\n<b>Branch:</b> <code>%s</code>\n<b>Dir:</b> <code>%s</code>\n<b>Status:</b> <code>%s</code>' "$BUILD_LABEL" "$KERNEL_BRANCH" "$KERNEL_DIR" "$make_status")"
     tg_post_doc "$error_log"
+    ccache --show-stats || true
     exit "$make_status"
 fi
+
+echo
+echo "======================================"
+echo " ccache statistics"
+echo "======================================"
+ccache --show-stats || true
 
 require_file() {
     [[ -f "$1" ]]
