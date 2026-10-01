@@ -52,3 +52,4 @@ cp "$OUT_DEFCONFIG" "$DEFCONFIG"
 
 echo
 echo "Defconfig updated successfully."
+rm -rf out
