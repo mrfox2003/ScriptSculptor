@@ -41,7 +41,6 @@ TG_TOPIC=""   # leave empty to post in main chat; set to topic ID (e.g., 6752) t
 error_log="$(mktemp /tmp/error.XXXXXX.log)"
 build_log="$(mktemp /tmp/build.XXXXXX.log)"
 build_status="$(mktemp /tmp/build_status.XXXXXX)"
-exec > >(tee -a "$error_log") 2>&1
 
 cleanup() {
     if [[ -n "${PROGRESS_WATCHER_PID:-}" ]]; then
@@ -52,15 +51,73 @@ cleanup() {
     rm -f "$build_status"
 }
 
+create_error_report() {
+    local stage="$1"
+    local exit_code="$2"
+    local line_no="${3-}"
+
+    {
+        echo "========================================"
+        echo "Meraki Kernel Build Failure"
+        echo "========================================"
+        echo
+        echo "Variant:     $BUILD_LABEL"
+        echo "Branch:      $KERNEL_BRANCH"
+        echo "Directory:   $KERNEL_DIR"
+        echo "Stage:       $stage"
+        echo "Exit code:   $exit_code"
+        [[ -n "$line_no" ]] && echo "Line:        $line_no"
+        echo
+
+        echo "========================================"
+        echo "Relevant errors"
+        echo "========================================"
+
+        if ! grep -Ei \
+            '(^|[[:space:]])(error:|fatal error:|Error:|FAILED:|undefined reference|No such file or directory|collect2: error:)' \
+            "$build_log" | tail -n 80; then
+            echo "No matching compiler error lines were found."
+        fi
+
+        echo
+        echo "========================================"
+        echo "Last 100 lines of build output"
+        echo "========================================"
+        if [[ -s "$build_log" ]]; then
+            tail -n 100 "$build_log"
+        else
+            echo "No build output was captured."
+        fi
+    } > "$error_log"
+}
+
+report_failure() {
+    local exit_code="$1"
+    local stage="$2"
+    local line_no="${3-}"
+
+    # Disable ERR handling while reporting so one failure produces one report.
+    trap - ERR
+    set +e
+
+    create_error_report "$stage" "$exit_code" "$line_no"
+
+    tg_post_msg "$(printf '🔴 | <b>%s kernel build failed</b>\n<b>Stage:</b> <code>%s</code>\n<b>Exit code:</b> <code>%s</code>%s\n<b>Branch:</b> <code>%s</code>\n<b>Dir:</b> <code>%s</code>' \
+        "$BUILD_LABEL" \
+        "$stage" \
+        "$exit_code" \
+        "$(if [[ -n "$line_no" ]]; then printf '\n<b>Line:</b> <code>%s</code>' "$line_no"; fi)" \
+        "$KERNEL_BRANCH" \
+        "$KERNEL_DIR")"
+    tg_post_doc "$error_log"
+    exit "$exit_code"
+}
+
 on_error() {
     local exit_code="$1"
     local line_no="$2"
 
-    trap - ERR
-    set +e
-    tg_post_msg "$(printf '🔴 | <b>%s kernel build failed</b>\n<b>Line:</b> <code>%s</code>\n<b>Exit code:</b> <code>%s</code>\n<b>Branch:</b> <code>%s</code>\n<b>Dir:</b> <code>%s</code>' "$BUILD_LABEL" "$line_no" "$exit_code" "$KERNEL_BRANCH" "$KERNEL_DIR")"
-    tg_post_doc "$error_log"
-    exit "$exit_code"
+    report_failure "$exit_code" "script error" "$line_no"
 }
 
 trap cleanup EXIT
@@ -281,12 +338,16 @@ build_message_id=$(tg_post_msg_id "$(printf '🟡 | <i>Compiling %s kernel...</i
 start_progress_watcher "$build_message_id"
 
 (
+    # Kernel build failures are expected conditions and are handled explicitly.
+    # Keep ERR trapping for unexpected script failures only.
+    set +e
     set -o pipefail
+
     make "$KERNEL_DEFCONFIG" O=out CC="$CC" 2>&1 | tee -a "$build_log"
-    defconfig_status=$?
+    defconfig_status="${PIPESTATUS[0]}"
 
     if [[ "$defconfig_status" -ne 0 ]]; then
-        printf '%s\n' "$defconfig_status" > "$build_status"
+        printf 'defconfig:%s\n' "$defconfig_status" > "$build_status"
         exit 0
     fi
 
@@ -303,20 +364,36 @@ start_progress_watcher "$build_message_id"
                               CC="$CC" \
                               CROSS_COMPILE=aarch64-linux-gnu- \
                               CROSS_COMPILE_ARM32=arm-linux-gnueabi- 2>&1 | tee -a "$build_log"
-    printf '%s\n' "$?" > "$build_status"
+    make_status="${PIPESTATUS[0]}"
+    printf 'kernel:%s\n' "$make_status" > "$build_status"
 )
 
-make_status=$(cat "$build_status")
+build_result=$(cat "$build_status")
+failure_stage="${build_result%%:*}"
+make_status="${build_result#*:}"
 if [[ -n "${PROGRESS_WATCHER_PID:-}" ]]; then
     kill "$PROGRESS_WATCHER_PID" 2>/dev/null || true
     wait "$PROGRESS_WATCHER_PID" 2>/dev/null || true
 fi
 
 if [[ "$make_status" -ne 0 ]]; then
-    tg_post_msg "$(printf '🔴 | <b>%s kernel build failed</b>\n<b>Branch:</b> <code>%s</code>\n<b>Dir:</b> <code>%s</code>\n<b>Status:</b> <code>%s</code>' "$BUILD_LABEL" "$KERNEL_BRANCH" "$KERNEL_DIR" "$make_status")"
-    tg_post_doc "$error_log"
-    ccache --show-stats || true
-    exit "$make_status"
+    case "$failure_stage" in
+        defconfig)
+            failure_stage="defconfig"
+            ;;
+        kernel)
+            if [[ "$make_status" -eq 130 ]]; then
+                failure_stage="kernel compilation interrupted"
+            else
+                failure_stage="kernel compilation"
+            fi
+            ;;
+        *)
+            failure_stage="kernel build"
+            ;;
+    esac
+
+    report_failure "$make_status" "$failure_stage"
 fi
 
 echo
