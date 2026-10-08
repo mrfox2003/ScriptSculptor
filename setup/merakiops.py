@@ -6,7 +6,7 @@ Commands (only from ADMIN_ID(s)):
 - /status      : uptime, load, RAM, disk, whether a build is running
 - /disk        : disk space only
 - /ip          : current external IP
-- /hours       : active hours (this session, today, this month, total)
+- /hours       : server uptime
 - /ccache      : ccache size and hit rate (ccache -s)
 - /ccacheclear : wipe the whole ccache (needs /confirm)
 - /shutdown    : power off the VM (needs /confirm)
@@ -21,9 +21,7 @@ import json
 import os
 import shutil
 import subprocess
-import threading
 import time
-from datetime import datetime
 
 import requests
 
@@ -38,8 +36,6 @@ CHAT_ID = int(os.environ["CHAT_ID"]) if os.environ.get("CHAT_ID") else None
 TOPIC_ID = int(os.environ["TOPIC_ID"]) if os.environ.get("TOPIC_ID") else None
 DISK_PATH = os.environ.get("DISK_PATH", "/")        # e.g. /mnt/disks/build
 CCACHE_DIR = os.environ.get("CCACHE_DIR", "")       # the dir your build user's ccache uses
-STATE_FILE = os.environ.get("STATE_FILE", "/var/lib/tgbot/hours.json")
-TICK = 60                                           # seconds between active-hours updates
 CONFIRM_WINDOW = 30                                 # seconds to confirm dangerous actions
 BUILD_PROCS = ["soong_ui", "ninja", "soong_build", "repo", "make"]
 # ---------------------------------------------------------------
@@ -51,7 +47,6 @@ HOME_THREAD = TOPIC_ID if CHAT_ID is not None else None
 BOT_USERNAME = ""
 # pending dangerous action, tied to who asked and where
 pending = {"action": None, "ts": 0.0, "user": None, "chat": None}
-state_lock = threading.Lock()
 
 
 # ---------- helpers ----------
@@ -136,48 +131,8 @@ def ccache_report():
     return "<b>ccache</b>\n<pre>" + html.escape(out[:3500]) + "</pre>"
 
 
-# ---------- active hours tracking ----------
-def load_state():
-    try:
-        with open(STATE_FILE) as f:
-            return json.load(f)
-    except (OSError, ValueError):
-        return {"days": {}}
-
-
-def save_state(state):
-    os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
-    tmp = STATE_FILE + ".tmp"
-    with open(tmp, "w") as f:
-        json.dump(state, f)
-    os.replace(tmp, STATE_FILE)
-
-
-def tracker():
-    last = time.time()
-    while True:
-        time.sleep(TICK)
-        now = time.time()
-        day = datetime.now().strftime("%Y-%m-%d")
-        with state_lock:
-            st = load_state()
-            st["days"][day] = st["days"].get(day, 0) + (now - last)
-            save_state(st)
-        last = now
-
-
-def hours_report():
-    with state_lock:
-        days = load_state()["days"]
-    today = datetime.now().strftime("%Y-%m-%d")
-    month = today[:7]
-    return (
-        f"<b>Active hours</b>\n"
-        f"This session: {fmt_dur(time.time() - BOOT_TS)}\n"
-        f"Today: {fmt_dur(days.get(today, 0))}\n"
-        f"This month: {fmt_dur(sum(v for k, v in days.items() if k.startswith(month)))}\n"
-        f"Total tracked: {fmt_dur(sum(days.values()))}"
-    )
+def uptime_report():
+    return f"<b>Server uptime</b>\n{fmt_dur(time.time() - BOOT_TS)}"
 
 
 # ---------- commands ----------
@@ -232,7 +187,7 @@ def handle(cmd, user, chat, thread):
     elif cmd == "/ip":
         send(f"<code>{external_ip()}</code>", *r)
     elif cmd == "/hours":
-        send(hours_report(), *r)
+        send(uptime_report(), *r)
     elif cmd == "/ccache":
         send(ccache_report(), *r)
     elif cmd == "/ccacheclear":
@@ -271,7 +226,6 @@ def main():
         pass
 
     send(f"<b>Server booted</b>\nIP: <code>{external_ip()}</code>\n{disk_info()}")
-    threading.Thread(target=tracker, daemon=True).start()
 
     offset = None
     while True:
