@@ -259,8 +259,8 @@ if [ -d "$HOME/kernel-compiler/gcc64" ] && [ -d "$HOME/kernel-compiler/gcc32" ];
     echo -e "$green GCC directories already exist. Skipping clone. $white"
 else
     echo -e "$green Cloning GCC toolchains... $white"
-    git clone --depth=1 https://github.com/mvaisakh/gcc-arm64 "$HOME"/kernel-compiler/gcc64
-    git clone --depth=1 https://github.com/mvaisakh/gcc-arm "$HOME"/kernel-compiler/gcc32
+    git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9.git "$HOME"/kernel-compiler/gcc64
+    git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9.git "$HOME"/kernel-compiler/gcc32
     echo -e "$green GCC toolchains cloned successfully. $white"
 fi
 
