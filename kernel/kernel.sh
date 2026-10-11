@@ -253,17 +253,6 @@ pin_message() {
     -d message_id="$2"
 }
 
-# Initialize Toolchains
-echo -e "$green Checking for GCC directories... $white"
-if [ -d "$HOME/kernel-compiler/gcc64" ] && [ -d "$HOME/kernel-compiler/gcc32" ]; then
-    echo -e "$green GCC directories already exist. Skipping clone. $white"
-else
-    echo -e "$green Cloning GCC toolchains... $white"
-    git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9.git "$HOME"/kernel-compiler/gcc64
-    git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9.git "$HOME"/kernel-compiler/gcc32
-    echo -e "$green GCC toolchains cloned successfully. $white"
-fi
-
 # Initialize Clang
 echo -e "$green Checking for Clang directory... $white"
 if [ -d "$HOME/kernel-compiler/clang" ]; then
@@ -292,9 +281,6 @@ date=$(date +"%Y-%m-%d-%H%M")
 export ARCH=arm64
 export SUBARCH=arm64
 export zipname="MerakiKernel${VARIANT_TAG}-sweet-${date}.zip"
-export PATH="$HOME/kernel-compiler/gcc64/bin:$HOME/kernel-compiler/gcc32/bin:$PATH"
-export STRIP="$HOME/kernel-compiler/gcc64/aarch64-elf/bin/strip"
-export KBUILD_COMPILER_STRING=$("$HOME"/kernel-compiler/gcc64/bin/aarch64-elf-gcc --version | head -n 1)
 export PATH="$HOME/kernel-compiler/clang/clang-r547379/bin:$PATH"
 export KBUILD_COMPILER_STRING=$("$HOME"/kernel-compiler/clang/clang-r547379/bin/clang --version | head -n 1 | perl -pe 's/\(http.*?\)//gs' | sed -e 's/  */ /g' -e 's/[[:space:]]*$//')
 
@@ -362,10 +348,10 @@ start_progress_watcher "$build_message_id"
                               OBJDUMP=llvm-objdump \
                               STRIP=llvm-strip \
                               CC="$CC" \
-                              CROSS_COMPILE=aarch64-linux-gnu- \
-                              CROSS_COMPILE_ARM32=arm-linux-gnueabi- 2>&1 | tee -a "$build_log"
+                              2>&1 | tee -a "$build_log"
     make_status="${PIPESTATUS[0]}"
     printf 'kernel:%s\n' "$make_status" > "$build_status"
+
 )
 
 build_result=$(cat "$build_status")
