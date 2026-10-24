@@ -276,6 +276,16 @@ fi
 # Begin kernel compilation
 cd "$KERNEL_DIR"
 MY_DIR="$(pwd)"
+
+# Integrate KernelSU only for the -ksu variant
+if [[ "$VARIANT" == "ksu" ]]; then
+    echo -e "$green Integrating KernelSU... $white"
+    KSU_RELEASE_JSON=$(curl -s https://api.github.com/repos/backslashxx/KernelSU/releases/latest)
+    KSU_VERSION=$(jq -r .tag_name <<< "$KSU_RELEASE_JSON")
+
+    curl -LSs "https://raw.githubusercontent.com/backslashxx/KernelSU/refs/heads/master/kernel/setup.sh" | bash -s -- "$KSU_VERSION"
+fi
+
 KERNEL_DEFCONFIG=vendor/sweet_user_defconfig
 date=$(date +"%Y-%m-%d-%H%M")
 export ARCH=arm64
