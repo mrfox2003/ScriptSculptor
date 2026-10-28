@@ -7,6 +7,9 @@ VARIANT="standard"
 KERNEL_DIR="kernel"
 KERNEL_BRANCH="17.0"
 VARIANT_TAG=""
+KSU_VERSION=""
+KSU_APK_URL=""
+KSU_APK_NAME=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -49,6 +52,7 @@ cleanup() {
     rm -f "$error_log"
     rm -f "$build_log"
     rm -f "$build_status"
+    [[ -n "${KSU_APK_NAME:-}" ]] && rm -f "$KSU_APK_NAME"
 }
 
 create_error_report() {
@@ -282,6 +286,17 @@ if [[ "$VARIANT" == "ksu" ]]; then
     echo -e "$green Integrating KernelSU... $white"
     KSU_RELEASE_JSON=$(curl -s https://api.github.com/repos/backslashxx/KernelSU/releases/latest)
     KSU_VERSION=$(jq -r .tag_name <<< "$KSU_RELEASE_JSON")
+    KSU_APK_URL=$(jq -r '.assets[] | select(.name | test("\\.apk$"; "i")) | .browser_download_url' <<< "$KSU_RELEASE_JSON" | head -n1)
+    KSU_APK_NAME=$(basename "$KSU_APK_URL" 2>/dev/null || true)
+
+    echo "📌 Fetching KernelSU Tag: $KSU_VERSION"
+    if [[ -n "$KSU_APK_URL" && "$KSU_APK_URL" != "null" ]]; then
+        echo "📱 KernelSU APK found: $KSU_APK_NAME"
+    else
+        echo "⚠️ No KernelSU APK asset found in latest release"
+        KSU_APK_URL=""
+        KSU_APK_NAME=""
+    fi
 
     curl -LSs "https://raw.githubusercontent.com/backslashxx/KernelSU/refs/heads/master/kernel/setup.sh" | bash -s -- "$KSU_VERSION"
 fi
@@ -446,3 +461,15 @@ pin_message "$TG_CHAT" "$BUILD_MSG_ID"
 rm -rf out
 tg_post_doc "${zipname}"
 rm -rf ${zipname}
+
+# Post KernelSU Manager APK if build succeeded for -ksu variant
+if [[ "$VARIANT" == "ksu" && -n "${KSU_APK_URL:-}" && "${KSU_APK_URL:-}" != "null" ]]; then
+    echo -e "$green Downloading KernelSU Manager APK ($KSU_APK_NAME)... $white"
+    if curl -sL "$KSU_APK_URL" -o "$KSU_APK_NAME"; then
+        echo -e "$green Uploading KernelSU Manager APK to Telegram... $white"
+        tg_post_doc "$KSU_APK_NAME" "📱 <b>KernelSU Manager (${KSU_VERSION})</b>"
+        rm -f "$KSU_APK_NAME"
+    else
+        echo "⚠️ Failed to download KernelSU Manager APK from $KSU_APK_URL"
+    fi
+fi
