@@ -41,7 +41,8 @@ TG_CHAT="chat_token"
 TG_BOT="bot_token"
 TG_TOPIC=""   # leave empty to post in main chat; set to topic ID (e.g., 6752) to post in a topic
 
-error_log="$(mktemp /tmp/error.XXXXXX.log)"
+error_dir="$(mktemp -d /tmp/error.XXXXXX)"
+error_log="${error_dir}/error.log"
 build_log="$(mktemp /tmp/build.XXXXXX.log)"
 build_status="$(mktemp /tmp/build_status.XXXXXX)"
 
@@ -49,7 +50,7 @@ cleanup() {
     if [[ -n "${PROGRESS_WATCHER_PID:-}" ]]; then
         kill "$PROGRESS_WATCHER_PID" 2>/dev/null || true
     fi
-    rm -f "$error_log"
+    rm -rf "$error_dir"
     rm -f "$build_log"
     rm -f "$build_status"
     [[ -n "${KSU_APK_NAME:-}" ]] && rm -f "$KSU_APK_NAME"
@@ -59,6 +60,7 @@ create_error_report() {
     local stage="$1"
     local exit_code="$2"
     local line_no="${3-}"
+    local failed_cmd="${4-}"
 
     {
         echo "========================================"
@@ -71,6 +73,7 @@ create_error_report() {
         echo "Stage:       $stage"
         echo "Exit code:   $exit_code"
         [[ -n "$line_no" ]] && echo "Line:        $line_no"
+        [[ -n "$failed_cmd" ]] && echo "Command:     $failed_cmd"
         echo
 
         echo "========================================"
@@ -85,10 +88,10 @@ create_error_report() {
 
         echo
         echo "========================================"
-        echo "Last 100 lines of build output"
+        echo "Full build log"
         echo "========================================"
         if [[ -s "$build_log" ]]; then
-            tail -n 100 "$build_log"
+            cat "$build_log"
         else
             echo "No build output was captured."
         fi
@@ -99,33 +102,36 @@ report_failure() {
     local exit_code="$1"
     local stage="$2"
     local line_no="${3-}"
+    local failed_cmd="${4-}"
 
     # Disable ERR handling while reporting so one failure produces one report.
     trap - ERR
     set +e
 
-    create_error_report "$stage" "$exit_code" "$line_no"
+    create_error_report "$stage" "$exit_code" "$line_no" "$failed_cmd"
 
-    tg_post_msg "$(printf '🔴 | <b>%s kernel build failed</b>\n<b>Stage:</b> <code>%s</code>\n<b>Exit code:</b> <code>%s</code>%s\n<b>Branch:</b> <code>%s</code>\n<b>Dir:</b> <code>%s</code>' \
+    tg_post_msg "$(printf '🔴 | <b>%s kernel build failed</b>\n<b>Stage:</b> <code>%s</code>\n<b>Exit code:</b> <code>%s</code>%s%s\n<b>Branch:</b> <code>%s</code>\n<b>Dir:</b> <code>%s</code>' \
         "$BUILD_LABEL" \
         "$stage" \
         "$exit_code" \
         "$(if [[ -n "$line_no" ]]; then printf '\n<b>Line:</b> <code>%s</code>' "$line_no"; fi)" \
+        "$(if [[ -n "$failed_cmd" ]]; then printf '\n<b>Command:</b> <code>%s</code>' "$failed_cmd"; fi)" \
         "$KERNEL_BRANCH" \
         "$KERNEL_DIR")"
-    tg_post_doc "$error_log"
+    tg_post_doc "$error_log" "❌ <b>Build Error Log:</b> <code>error.log</code>"
     exit "$exit_code"
 }
 
 on_error() {
     local exit_code="$1"
     local line_no="$2"
+    local failed_cmd="${3-}"
 
-    report_failure "$exit_code" "script error" "$line_no"
+    report_failure "$exit_code" "script error" "$line_no" "$failed_cmd"
 }
 
 trap cleanup EXIT
-trap 'on_error "$?" "$LINENO"' ERR
+trap 'on_error "$?" "$LINENO" "$BASH_COMMAND"' ERR
 
 # Function to send message to Telegram
 tg_post_msg() {
