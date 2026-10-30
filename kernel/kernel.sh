@@ -35,6 +35,7 @@ else
 fi
 
 green='\033[0;32m'
+red='\033[0;31m'
 white='\033[0m'
 
 TG_CHAT="chat_token" 
@@ -305,6 +306,39 @@ if [[ "$VARIANT" == "ksu" ]]; then
     fi
 
     curl -LSs "https://raw.githubusercontent.com/backslashxx/KernelSU/refs/heads/master/kernel/setup.sh" | bash -s -- "$KSU_VERSION"
+
+    # Integrate NoMount
+    echo -e "$green Setting up NoMount... $white"
+    curl -LSs "https://raw.githubusercontent.com/maxsteeel/nomount/refs/heads/dev/kernel/setup.sh" | bash -
+
+    echo -e "$green Validating NoMount integration... $white"
+
+    if [[ ! -d "fs/nomount" ]]; then
+        echo -e "${red}❌ NoMount source directory was not created.${white}"
+        report_failure 1 "nomount setup (fs/nomount missing)"
+    fi
+
+    if [[ ! -f "fs/nomount/Kconfig" ]]; then
+        echo -e "${red}❌ NoMount Kconfig not found.${white}"
+        report_failure 1 "nomount setup (fs/nomount/Kconfig missing)"
+    fi
+
+    if [[ ! -f "fs/nomount/Makefile" ]]; then
+        echo -e "${red}❌ NoMount Makefile not found.${white}"
+        report_failure 1 "nomount setup (fs/nomount/Makefile missing)"
+    fi
+
+    if ! grep -Fq 'source "fs/nomount/Kconfig"' fs/Kconfig; then
+        echo -e "${red}❌ fs/Kconfig is missing NoMount Kconfig integration.${white}"
+        report_failure 1 "nomount setup (fs/Kconfig integration missing)"
+    fi
+
+    if ! grep -Fq 'obj-$(CONFIG_NOMOUNT)' fs/Makefile; then
+        echo -e "${red}❌ fs/Makefile is missing NoMount integration.${white}"
+        report_failure 1 "nomount setup (fs/Makefile integration missing)"
+    fi
+
+    echo -e "$green✅ NoMount source and kernel integration detected.$white"
 fi
 
 KERNEL_DEFCONFIG=vendor/sweet_user_defconfig
